@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
 import { toggleFullScreen } from "./helpers/fullscreen";
 import { resizeRendererToDisplaySize } from "./helpers/responsiveness";
 
@@ -6,10 +7,17 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
 const renderer = new THREE.WebGLRenderer();
+
+// Add VR Button
+renderer.xr.enabled = true;
+document.body.appendChild(VRButton.createButton(renderer));
+
+// Setup Loop
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setAnimationLoop(animate);
 document.body.appendChild(renderer.domElement);
 
+// Add shape
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const cube = new THREE.Mesh(geometry, material);
