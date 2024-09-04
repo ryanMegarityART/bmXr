@@ -4,6 +4,7 @@ import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { XrInput } from "./utils/xrInput";
+import { Object3D, Object3DEventMap } from "three";
 
 export class Context {
   frame: number = 0;
@@ -17,6 +18,7 @@ export class Context {
   deltaTime: number;
   clock: THREE.Clock;
   controls: any;
+  handlebars?: Object3D<Object3DEventMap>;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer();
@@ -73,6 +75,13 @@ export class Context {
     box.position.set(0, -0.001, 0);
     this.scene.add(box);
 
+    // Add Handlebars
+    const loader = new THREE.ObjectLoader();
+    loader.load("/scene-assets/Handlebars.json", (handlebars): void => {
+      this.handlebars = handlebars
+      this.scene.add(handlebars)
+    })
+
     // Mirror
     const mirror = new Reflector(new THREE.PlaneGeometry(3, 4), {
       color: new THREE.Color(0xa0a0a0),
@@ -92,6 +101,12 @@ export class Context {
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.stats.update();
+    if (this.handlebars) {
+      const vector = new THREE.Vector3(0, 1, 0)
+      this.handlebars.position.set(1, -0.2, 0)
+      this.handlebars.scale.set(0.2, 0.2, 0.2)
+      // this.handlebars.rotateOnAxis(vector, 0.1)
+    }
   }
 
   onResize() {
