@@ -80,7 +80,8 @@ export class Context {
       textureHeight: window.innerHeight * window.devicePixelRatio * 2,
     });
     mirror.position.set(0, 2, -2);
-    this.scene.add(mirror);
+    // this kills the fps!
+    // this.scene.add(mirror);
   }
 
   onAnimate() {
