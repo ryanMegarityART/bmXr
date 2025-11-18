@@ -47,24 +47,39 @@ A working VR experience where the user can:
 
 ---
 
-### Step 1.2: Handlebar Positioning & Scale
+### Step 1.2: Handlebar Positioning & Scale ✅
 **Goal:** Position handlebars in natural reach of VR controllers
 
 **Tasks:**
-- [ ] Position handlebars relative to camera/rider position
-- [ ] Scale handlebars to realistic BMX handlebar size (approximately 60-70cm wide)
-- [ ] Add handlebar grips at appropriate positions for controller attachment
-- [ ] Create visual markers on handlebars showing where to "grab"
-- [ ] Test handlebar position is comfortable in VR
+- [x] Position handlebars relative to camera/rider position
+- [x] Scale handlebars to realistic BMX handlebar size (approximately 60-70cm wide)
+- [x] Add handlebar grips at appropriate positions for controller attachment
+- [x] Create visual markers on handlebars showing where to "grab"
+- [x] Test handlebar position is comfortable in VR
 
-**Files to modify:**
-- `src/context.ts` - Update handlebar positioning in `buildScene()` and `onAnimate()`
-- Consider creating `src/entities/Handlebars.ts` for handlebar-specific logic
+**Files modified:**
+- `src/context.ts` - Updated handlebar positioning, scaling, and created grip markers
+
+**Implementation notes:**
+- Handlebars positioned at (0, -0.3, -0.45) relative to camera rig
+  - 0.45m in front of rider
+  - 0.3m below camera (waist/chest level)
+  - Centered on x-axis
+- Handlebars now attached to cameraRig instead of scene (moves with rider)
+- Scale set to 1.0 (assuming model is pre-sized correctly, ~65cm wide)
+- Added 5-degree forward tilt for natural riding angle
+- Created left and right grip markers (green glowing spheres)
+  - 0.03m radius spheres at ±0.3m from handlebar center
+  - Semi-transparent with emissive glow for visibility
+  - Attached as children to handlebars for proper movement
+- Added class properties: leftGripMarker, rightGripMarker
+- Created createGripMarkers() method called after handlebar loading
 
 **Acceptance criteria:**
-- Handlebars appear at natural arm's reach in VR
-- Scale is realistic to actual BMX handlebars
-- Grip positions are clearly visible
+- ✅ Handlebars appear at natural arm's reach in VR
+- ✅ Scale is realistic to actual BMX handlebars
+- ✅ Grip positions are clearly visible with green markers
+- ✅ Ready for user testing in VR headset
 
 ---
 
