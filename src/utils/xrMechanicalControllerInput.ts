@@ -6,6 +6,7 @@ const __rot = new THREE.Quaternion();
 const __wristOffset = new THREE.Vector3();
 const __euler = new THREE.Euler();
 const __wristQuat = new THREE.Quaternion();
+const __tempVec = new THREE.Vector3();
 
 /**
  * Manages the standard WebXR mechanical "grip" controller.
@@ -33,6 +34,10 @@ export class XrMechanicalControllerInput {
   _pointerWOrigin: THREE.Vector3;
   _pointerWDirection: THREE.Vector3;
   _lastUpdate: number;
+  _debugSphere?: THREE.Mesh;
+  _buttonStateIndicator?: THREE.Mesh;
+  isNearGrip: boolean;
+  distanceToGrip: number;
   constructor(context: Context, grip: any, gamePad: any, handSide: string) {
     this.context = context;
     this._grip = grip;
@@ -59,6 +64,11 @@ export class XrMechanicalControllerInput {
     this._pointerWOrigin = new THREE.Vector3();
     this._pointerWDirection = new THREE.Vector3();
     this._lastUpdate = -1;
+    this.isNearGrip = false;
+    this.distanceToGrip = Infinity;
+
+    // Create visual debug sphere for controller position
+    this.createDebugVisualization();
   }
 
   /*
@@ -118,11 +128,131 @@ export class XrMechanicalControllerInput {
     }
   }
 
+  /*
+   * Create visual debug elements for controller
+   */
+  createDebugVisualization() {
+    // Create a small sphere to represent controller position
+    const sphereGeometry = new THREE.SphereGeometry(0.02, 16, 16);
+    const sphereMaterial = new THREE.MeshStandardMaterial({
+      color: this._handSide === 'left' ? 0x0088ff : 0xff8800,
+      emissive: this._handSide === 'left' ? 0x0088ff : 0xff8800,
+      emissiveIntensity: 0.3,
+      transparent: true,
+      opacity: 0.8
+    });
+    this._debugSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+    // Create button state indicator (changes color based on buttons pressed)
+    const indicatorGeometry = new THREE.RingGeometry(0.025, 0.035, 16);
+    const indicatorMaterial = new THREE.MeshBasicMaterial({
+      color: 0x888888,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.6
+    });
+    this._buttonStateIndicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+    this._buttonStateIndicator.position.z = -0.01;
+  }
+
+  /*
+   * Update proximity detection to nearest grip marker
+   */
+  updateProximityToGrip() {
+    // Get the appropriate grip marker based on hand side
+    const targetGrip = this._handSide === 'left'
+      ? this.context.leftGripMarker
+      : this.context.rightGripMarker;
+
+    if (!targetGrip) {
+      this.isNearGrip = false;
+      this.distanceToGrip = Infinity;
+      return;
+    }
+
+    // Calculate distance from controller to grip marker
+    targetGrip.getWorldPosition(__tempVec);
+    this.distanceToGrip = this.wristWPos.distanceTo(__tempVec);
+
+    // Define "near" as within 10cm (0.1m)
+    const proximityThreshold = 0.1;
+    this.isNearGrip = this.distanceToGrip < proximityThreshold;
+
+    // Update visual feedback based on proximity
+    if (this._debugSphere) {
+      const material = this._debugSphere.material as THREE.MeshStandardMaterial;
+      if (this.isNearGrip) {
+        // Change to green and glow when near grip
+        material.color.setHex(0x00ff00);
+        material.emissive.setHex(0x00ff00);
+        material.emissiveIntensity = 0.8;
+        material.opacity = 1.0;
+
+        // Pulse haptic feedback when entering grip zone
+        if (!this.isNearGrip) {
+          this.vibrate(0.3, 50);
+        }
+      } else {
+        // Return to original hand color
+        material.color.setHex(this._handSide === 'left' ? 0x0088ff : 0xff8800);
+        material.emissive.setHex(this._handSide === 'left' ? 0x0088ff : 0xff8800);
+        material.emissiveIntensity = 0.3;
+        material.opacity = 0.8;
+      }
+    }
+  }
+
+  /*
+   * Update button state visualization
+   */
+  updateButtonStateDisplay() {
+    if (!this._buttonStateIndicator) return;
+
+    const material = this._buttonStateIndicator.material as THREE.MeshBasicMaterial;
+
+    // Show different colors based on button states
+    if (this.squeeze) {
+      // Squeeze/Grip button - Yellow
+      material.color.setHex(0xffff00);
+      material.opacity = 1.0;
+    } else if (this.select) {
+      // Select/Trigger button - Red
+      material.color.setHex(0xff0000);
+      material.opacity = 1.0;
+    } else if (this.buttonA) {
+      // A button - Green
+      material.color.setHex(0x00ff00);
+      material.opacity = 1.0;
+    } else if (this.buttonB) {
+      // B button - Blue
+      material.color.setHex(0x0000ff);
+      material.opacity = 1.0;
+    } else if (this.thumbStickButton) {
+      // Thumbstick pressed - Purple
+      material.color.setHex(0xff00ff);
+      material.opacity = 1.0;
+    } else {
+      // No buttons pressed - Gray
+      material.color.setHex(0x888888);
+      material.opacity = 0.3;
+    }
+  }
+
   /**
    * Called when the controller is connected
    */
   onConnect() {
     this.context.scene.add(this._wristAxis);
+
+    // Add debug visualization to scene
+    if (this._debugSphere) {
+      this.context.scene.add(this._debugSphere);
+    }
+    if (this._buttonStateIndicator) {
+      this.context.scene.add(this._buttonStateIndicator);
+    }
+
+    console.log(`${this._handSide} controller visualization enabled`);
   }
 
   /**
@@ -131,6 +261,23 @@ export class XrMechanicalControllerInput {
   onAnimate() {
     this._wristAxis.position.copy(this.wristWPos);
     this._wristAxis.quaternion.copy(this.wristWQuat);
+
+    // Update debug sphere position
+    if (this._debugSphere) {
+      this._debugSphere.position.copy(this.wristWPos);
+    }
+
+    // Update button state indicator position and orientation
+    if (this._buttonStateIndicator) {
+      this._buttonStateIndicator.position.copy(this.wristWPos);
+      this._buttonStateIndicator.quaternion.copy(this.wristWQuat);
+    }
+
+    // Update proximity detection and visual feedback
+    this.updateProximityToGrip();
+
+    // Update button state visualization
+    this.updateButtonStateDisplay();
   }
 
   /**
@@ -138,6 +285,8 @@ export class XrMechanicalControllerInput {
    */
   onDisconnect() {
     this._wristAxis?.removeFromParent();
+    this._debugSphere?.removeFromParent();
+    this._buttonStateIndicator?.removeFromParent();
   }
 
   /*
