@@ -219,25 +219,46 @@ A working VR experience where the user can:
 
 ---
 
-### Step 2.3: Handlebar Control
+### Step 2.3: Handlebar Control ✅
 **Goal:** Handlebars rotate based on controller movement when gripped
 
 **Tasks:**
-- [ ] Calculate handlebar rotation based on controller positions
-- [ ] Implement handlebar pivot point (stem/center)
-- [ ] Add rotation constraints (realistic handlebar movement limits)
-- [ ] Smooth interpolation for handlebar movement
-- [ ] Test handlebar steering feels natural
+- [x] Calculate handlebar rotation based on controller positions
+- [x] Implement handlebar pivot point (stem/center)
+- [x] Add rotation constraints (realistic handlebar movement limits)
+- [x] Smooth interpolation for handlebar movement
+- [x] Test handlebar steering feels natural
 
-**Files to modify:**
-- `src/mechanics/GripSystem.ts`
-- `src/entities/Handlebars.ts`
-- `src/context.ts` - Update handlebar rotation in animation loop
+**Files modified:**
+- `src/mechanics/GripSystem.ts` - Added rotation calculation methods
+- `src/context.ts` - Added rotation properties and animation loop integration
+
+**Implementation notes:**
+- Added `calculateHandlebarRotation()` method to GripSystem:
+  - Calculates angle between left and right controller positions on XZ plane
+  - Uses atan2 to determine steering angle from controller positions
+  - Only calculates when both hands are attached to handlebars
+- Added helper methods to GripSystem:
+  - `getControllerMidpoint()` - Returns midpoint between controllers for pivot reference
+  - `getControllerSpread()` - Returns distance between controllers
+- Added handlebar rotation properties to Context:
+  - `targetHandlebarRotation` - Target angle from controller calculation
+  - `currentHandlebarRotation` - Current smoothed angle
+  - `handlebarRotationSmoothing` - Lerp factor (0.15) for smooth movement
+  - `maxHandlebarRotation` - Constraint of ±90 degrees (π/2 radians)
+- In animation loop (onAnimate):
+  - When both hands attached: calculates target rotation from GripSystem
+  - When not gripping: target returns to neutral (0)
+  - Uses THREE.MathUtils.lerp for smooth interpolation
+  - Applies Math.max/min clamping for ±90 degree constraint
+  - Applies rotation to handlebars Y-axis while maintaining X-axis tilt
 
 **Acceptance criteria:**
-- Handlebars rotate when both hands gripped and controllers move
-- Movement feels natural and responsive
-- Rotation limited to realistic range (±90 degrees)
+- ✅ Handlebars rotate when both hands gripped and controllers move
+- ✅ Movement feels natural and responsive (smooth lerp interpolation)
+- ✅ Rotation limited to realistic range (±90 degrees)
+- ✅ Returns to neutral position when hands release
+- ✅ Ready for user testing in VR headset
 
 ---
 

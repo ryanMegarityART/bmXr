@@ -5,6 +5,9 @@ import { XrMechanicalControllerInput } from "../utils/xrMechanicalControllerInpu
 // Working variables to prevent allocations
 const __tempVec = new THREE.Vector3();
 const __gripWorldPos = new THREE.Vector3();
+const __leftControllerPos = new THREE.Vector3();
+const __rightControllerPos = new THREE.Vector3();
+const __handlebarCenter = new THREE.Vector3();
 
 /**
  * Grip zone configuration
@@ -538,5 +541,101 @@ export class GripSystem {
     const rightAttached = this.rightHandGrip.isAttached ? "ATT" : "";
 
     return `L: ${leftState}${leftAttached} (${leftDist}m) | R: ${rightState}${rightAttached} (${rightDist}m)`;
+  }
+
+  /**
+   * Calculate handlebar rotation based on controller positions
+   * Returns the rotation angle in radians around the Y-axis (steering)
+   *
+   * When both hands are attached, we calculate the angle between the
+   * line connecting both controllers and the default handlebar orientation.
+   */
+  calculateHandlebarRotation(): number {
+    // Only calculate if both hands are attached
+    if (!this.areBothHandsAttached()) {
+      return 0;
+    }
+
+    const leftController = this.context.xrInput._leftHandController;
+    const rightController = this.context.xrInput._rightHandController;
+
+    if (!leftController || !rightController) {
+      return 0;
+    }
+
+    // Get controller world positions
+    leftController.wristWPos; // Trigger refresh
+    rightController.wristWPos; // Trigger refresh
+
+    __leftControllerPos.copy(leftController._worldPosition);
+    __rightControllerPos.copy(rightController._worldPosition);
+
+    // Calculate the angle between left and right controllers on the XZ plane
+    // This represents the handlebar steering angle
+    const dx = __rightControllerPos.x - __leftControllerPos.x;
+    const dz = __rightControllerPos.z - __leftControllerPos.z;
+
+    // Calculate angle from the X-axis (default handlebar orientation is along X)
+    // atan2 gives us the angle in radians
+    const angle = Math.atan2(dz, dx);
+
+    // Return the rotation angle (negative because we want clockwise rotation
+    // when right hand is forward to turn right)
+    return -angle;
+  }
+
+  /**
+   * Get the midpoint between both controllers (for pivot reference)
+   * Returns null if both hands aren't attached
+   */
+  getControllerMidpoint(): THREE.Vector3 | null {
+    if (!this.areBothHandsAttached()) {
+      return null;
+    }
+
+    const leftController = this.context.xrInput._leftHandController;
+    const rightController = this.context.xrInput._rightHandController;
+
+    if (!leftController || !rightController) {
+      return null;
+    }
+
+    // Get controller world positions
+    leftController.wristWPos; // Trigger refresh
+    rightController.wristWPos; // Trigger refresh
+
+    __leftControllerPos.copy(leftController._worldPosition);
+    __rightControllerPos.copy(rightController._worldPosition);
+
+    // Calculate midpoint
+    __handlebarCenter.addVectors(__leftControllerPos, __rightControllerPos).multiplyScalar(0.5);
+
+    return __handlebarCenter;
+  }
+
+  /**
+   * Get the distance between both controllers (for detecting spread)
+   * Returns 0 if both hands aren't attached
+   */
+  getControllerSpread(): number {
+    if (!this.areBothHandsAttached()) {
+      return 0;
+    }
+
+    const leftController = this.context.xrInput._leftHandController;
+    const rightController = this.context.xrInput._rightHandController;
+
+    if (!leftController || !rightController) {
+      return 0;
+    }
+
+    // Get controller world positions
+    leftController.wristWPos; // Trigger refresh
+    rightController.wristWPos; // Trigger refresh
+
+    __leftControllerPos.copy(leftController._worldPosition);
+    __rightControllerPos.copy(rightController._worldPosition);
+
+    return __leftControllerPos.distanceTo(__rightControllerPos);
   }
 }
