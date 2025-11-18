@@ -26,6 +26,12 @@ export class Context {
   rightGripMarker?: THREE.Mesh;
   isInVR: boolean = false;
 
+  // Handlebar rotation control
+  targetHandlebarRotation: number = 0;
+  currentHandlebarRotation: number = 0;
+  handlebarRotationSmoothing: number = 0.15; // Lerp factor for smooth rotation
+  maxHandlebarRotation: number = Math.PI / 2; // ±90 degrees constraint
+
   constructor() {
     this.renderer = new THREE.WebGLRenderer();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -207,8 +213,33 @@ export class Context {
       // We need to check the actual model size, but starting with scale that gives ~65cm width
       this.handlebars.scale.set(1.0, 1.0, 1.0);
 
-      // Rotate handlebars slightly forward for natural riding angle
-      this.handlebars.rotation.x = Math.PI * 0.05; // ~9 degrees forward tilt
+      // Calculate handlebar rotation when both hands are gripping
+      if (this.gripSystem.areBothHandsAttached()) {
+        // Get target rotation from grip system
+        this.targetHandlebarRotation = this.gripSystem.calculateHandlebarRotation();
+
+        // Apply rotation constraints (±90 degrees)
+        this.targetHandlebarRotation = Math.max(
+          -this.maxHandlebarRotation,
+          Math.min(this.maxHandlebarRotation, this.targetHandlebarRotation)
+        );
+      } else {
+        // Return to neutral position when not gripping
+        this.targetHandlebarRotation = 0;
+      }
+
+      // Smooth interpolation between current and target rotation
+      this.currentHandlebarRotation = THREE.MathUtils.lerp(
+        this.currentHandlebarRotation,
+        this.targetHandlebarRotation,
+        this.handlebarRotationSmoothing
+      );
+
+      // Apply rotation to handlebars
+      // X rotation: forward tilt for natural riding angle (~9 degrees)
+      // Y rotation: steering based on controller positions
+      this.handlebars.rotation.x = Math.PI * 0.05;
+      this.handlebars.rotation.y = this.currentHandlebarRotation;
     }
   }
 
