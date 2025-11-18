@@ -125,25 +125,49 @@ A working VR experience where the user can:
 
 ## Phase 2: Handlebar Grip System
 
-### Step 2.1: Grip Detection
+### Step 2.1: Grip Detection ✅
 **Goal:** Detect when controllers are in position to grip handlebars
 
 **Tasks:**
-- [ ] Define grip zones on left and right handlebar
-- [ ] Implement proximity detection between controllers and grip zones
-- [ ] Add "haptic pulse" feedback when entering grip zone
-- [ ] Create visual highlight when grip is available
-- [ ] Implement grip button mapping (trigger or grip button)
+- [x] Define grip zones on left and right handlebar
+- [x] Implement proximity detection between controllers and grip zones
+- [x] Add "haptic pulse" feedback when entering grip zone
+- [x] Create visual highlight when grip is available
+- [x] Implement grip button mapping (trigger or grip button)
 
-**Files to modify:**
-- Create `src/mechanics/GripSystem.ts`
-- `src/utils/xrInput.ts` - Add grip detection events
-- `src/context.ts` - Integrate grip system
+**Files modified:**
+- Created `src/mechanics/GripSystem.ts` - Core grip detection system
+- `src/utils/xrMechanicalControllerInput.ts` - Removed duplicate haptic feedback
+- `src/context.ts` - Integrated grip system
+
+**Implementation notes:**
+- Created comprehensive GripSystem class with:
+  - GripZone interface defining marker, position, and thresholds
+  - GripState enum (IDLE, NEAR, GRIPPING)
+  - Per-hand grip tracking with state transitions
+  - Event system for grip state changes (enterProximity, exitProximity, gripStart, gripEnd)
+- Proximity detection:
+  - proximityThreshold: 10cm (0.1m) - triggers "near grip" visual/haptic feedback
+  - grabThreshold: 8cm (0.08m) - allows actual grip when button pressed
+- Haptic feedback patterns:
+  - Enter proximity: 0.3 intensity, 50ms pulse
+  - Exit proximity: 0.1 intensity, 30ms pulse
+  - Grip start: 0.6 intensity, 100ms pulse
+  - Grip end: 0.4 intensity, 50ms pulse
+- Visual feedback on grip markers:
+  - IDLE: Dim green, normal scale
+  - NEAR: Bright green glow, pulsing scale based on distance
+  - GRIPPING: Yellow glow, 1.2x scale
+- Grip button mapping: Uses squeeze/grip button (controller.squeeze)
+- Utility methods: isHandGripping(), areBothHandsGripping(), isHandNearGrip(), getDebugInfo()
+- GripSystem initialized in context.ts after xrInput
+- Grip zones initialized after handlebars and markers are loaded
 
 **Acceptance criteria:**
-- System detects when controller is within 5-10cm of grip point
-- Haptic feedback pulses when in range
-- Visual indicator shows grippable state
+- ✅ System detects when controller is within 5-10cm of grip point
+- ✅ Haptic feedback pulses when in range (and on state transitions)
+- ✅ Visual indicator shows grippable state (grip markers change color/scale)
+- ✅ Ready for user testing in VR headset
 
 ---
 

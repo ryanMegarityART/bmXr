@@ -5,6 +5,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { XrInput } from "./utils/xrInput";
 import { Object3D, Object3DEventMap } from "three";
+import { GripSystem } from "./mechanics/GripSystem";
 
 export class Context {
   frame: number = 0;
@@ -15,6 +16,7 @@ export class Context {
   renderer: THREE.WebGLRenderer;
   stats: Stats;
   xrInput: XrInput;
+  gripSystem: GripSystem;
   elapsedTime: number;
   deltaTime: number;
   clock: THREE.Clock;
@@ -69,6 +71,9 @@ export class Context {
     document.body.appendChild(VRButton.createButton(this.renderer));
     this.renderer.xr.enabled = true;
     this.xrInput = new XrInput(this);
+
+    // Initialize grip system
+    this.gripSystem = new GripSystem(this);
 
     // Setup VR session listeners for camera adjustment
     this.setupVRSessionListeners();
@@ -142,6 +147,9 @@ export class Context {
     this.handlebars.add(this.rightGripMarker);
 
     console.log('Grip markers created at handlebar positions');
+
+    // Initialize grip system zones now that markers are ready
+    this.gripSystem.initializeGripZones();
   }
 
   setupVRSessionListeners() {
@@ -172,6 +180,9 @@ export class Context {
     this.elapsedTime = this.clock.elapsedTime;
     this.deltaTime = this.clock.getDelta();
     this.xrInput.onAnimate();
+
+    // Update grip system
+    this.gripSystem.update();
 
     // Only update controls when not in VR
     if (!this.isInVR) {

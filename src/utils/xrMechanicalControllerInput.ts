@@ -157,6 +157,7 @@ export class XrMechanicalControllerInput {
 
   /*
    * Update proximity detection to nearest grip marker
+   * Note: Haptic feedback is now handled by GripSystem
    */
   updateProximityToGrip() {
     // Get the appropriate grip marker based on hand side
@@ -178,7 +179,7 @@ export class XrMechanicalControllerInput {
     const proximityThreshold = 0.1;
     this.isNearGrip = this.distanceToGrip < proximityThreshold;
 
-    // Update visual feedback based on proximity
+    // Update debug sphere visual feedback based on proximity
     if (this._debugSphere) {
       const material = this._debugSphere.material as THREE.MeshStandardMaterial;
       if (this.isNearGrip) {
@@ -187,11 +188,6 @@ export class XrMechanicalControllerInput {
         material.emissive.setHex(0x00ff00);
         material.emissiveIntensity = 0.8;
         material.opacity = 1.0;
-
-        // Pulse haptic feedback when entering grip zone
-        if (!this.isNearGrip) {
-          this.vibrate(0.3, 50);
-        }
       } else {
         // Return to original hand color
         material.color.setHex(this._handSide === 'left' ? 0x0088ff : 0xff8800);
