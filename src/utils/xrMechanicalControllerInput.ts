@@ -258,8 +258,13 @@ export class XrMechanicalControllerInput {
     this._wristAxis.position.copy(this.wristWPos);
     this._wristAxis.quaternion.copy(this.wristWQuat);
 
-    // Update debug sphere position
-    if (this._debugSphere) {
+    // Check if controller is attached to grip (GripSystem manages position when attached)
+    const isAttached = this.context.gripSystem?.isHandAttached(
+      this._handSide as "left" | "right"
+    );
+
+    // Update debug sphere position (only if not attached - GripSystem handles attached position)
+    if (this._debugSphere && !isAttached) {
       this._debugSphere.position.copy(this.wristWPos);
     }
 

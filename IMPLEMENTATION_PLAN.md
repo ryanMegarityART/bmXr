@@ -171,26 +171,51 @@ A working VR experience where the user can:
 
 ---
 
-### Step 2.2: Grip Attachment
+### Step 2.2: Grip Attachment ✅
 **Goal:** Attach controllers to handlebars when grip button pressed
 
 **Tasks:**
-- [ ] Implement grip button listener (squeeze/trigger)
-- [ ] Create parent-child relationship between controller and handlebar grip point
-- [ ] Lock controller to handlebar when gripped
-- [ ] Add stronger haptic feedback on successful grip
-- [ ] Implement grip release on button release
-- [ ] Track which hand is gripping which side
+- [x] Implement grip button listener (squeeze/trigger)
+- [x] Create parent-child relationship between controller and handlebar grip point
+- [x] Lock controller to handlebar when gripped
+- [x] Add stronger haptic feedback on successful grip
+- [x] Implement grip release on button release
+- [x] Track which hand is gripping which side
 
-**Files to modify:**
-- `src/mechanics/GripSystem.ts`
-- `src/utils/xrInput.ts`
+**Files modified:**
+- `src/mechanics/GripSystem.ts` - Added attachment/detachment logic, tracking, haptic feedback
+- `src/utils/xrMechanicalControllerInput.ts` - Updated to respect attachment state for debug sphere
+
+**Implementation notes:**
+- Extended HandGripData interface with attachment properties:
+  - isAttached: boolean flag for attachment state
+  - attachedSide: tracks which side ("left" | "right") the hand is gripping
+  - attachmentOffset: stores offset from grip point when attached
+- Implemented attachController() method:
+  - Marks hand as attached when grip button pressed while near
+  - Double haptic pulse (0.8 intensity 80ms + 0.4 intensity 40ms) for satisfying "click into place" feel
+  - Stores attachment offset for potential smooth transitions
+- Implemented detachController() method:
+  - Resets attachment state and offset
+  - Medium haptic pulse (0.4 intensity, 50ms) on release
+- Added updateAttachedControllers() method:
+  - Called each frame in update()
+  - Snaps controller debug sphere to grip point when attached
+  - GripSystem takes ownership of debug sphere position when attached
+- Modified xrMechanicalControllerInput to check GripSystem attachment state:
+  - Skips debug sphere position update when attached (GripSystem handles it)
+- Added utility methods:
+  - isHandAttached(hand): Check if specific hand is attached
+  - areBothHandsAttached(): Check if both hands are attached
+  - getAttachedSide(hand): Get which side a hand is attached to
+- Updated getDebugInfo() to show "ATT" suffix when attached
 
 **Acceptance criteria:**
-- Pressing grip button when in range attaches controller to handlebar
-- Controller position locked to handlebar while gripping
-- Release works smoothly
-- Can grip/release independently with each hand
+- ✅ Pressing grip button when in range attaches controller to handlebar
+- ✅ Controller position locked to handlebar while gripping
+- ✅ Release works smoothly
+- ✅ Can grip/release independently with each hand
+- ✅ Ready for user testing in VR headset
 
 ---
 
