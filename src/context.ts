@@ -20,6 +20,8 @@ export class Context {
   clock: THREE.Clock;
   controls: any;
   handlebars?: Object3D<Object3DEventMap>;
+  leftGripMarker?: THREE.Mesh;
+  rightGripMarker?: THREE.Mesh;
   isInVR: boolean = false;
 
   constructor() {
@@ -96,9 +98,13 @@ export class Context {
     // Add Handlebars
     const loader = new THREE.ObjectLoader();
     loader.load("/scene-assets/Handlebars.json", (handlebars): void => {
-      this.handlebars = handlebars
-      this.scene.add(handlebars)
-    })
+      this.handlebars = handlebars;
+      // Add handlebars to camera rig so they move with the rider
+      this.cameraRig.add(handlebars);
+
+      // Create grip markers after handlebars are loaded
+      this.createGripMarkers();
+    });
 
     // Mirror
     const mirror = new Reflector(new THREE.PlaneGeometry(3, 4), {
@@ -109,6 +115,33 @@ export class Context {
     mirror.position.set(0, 2, -2);
     // this kills the fps!
     // this.scene.add(mirror);
+  }
+
+  createGripMarkers() {
+    if (!this.handlebars) return;
+
+    // Create visual markers for grip positions
+    // These are spheres that show where controllers should grab
+    const gripGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+    const gripMaterial = new THREE.MeshStandardMaterial({
+      color: 0x00ff00,
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.5,
+      transparent: true,
+      opacity: 0.7
+    });
+
+    // Left grip marker (positioned on left handlebar grip)
+    this.leftGripMarker = new THREE.Mesh(gripGeometry, gripMaterial);
+    this.leftGripMarker.position.set(-0.3, 0, 0); // Left side, relative to handlebars
+    this.handlebars.add(this.leftGripMarker);
+
+    // Right grip marker (positioned on right handlebar grip)
+    this.rightGripMarker = new THREE.Mesh(gripGeometry, gripMaterial.clone());
+    this.rightGripMarker.position.set(0.3, 0, 0); // Right side, relative to handlebars
+    this.handlebars.add(this.rightGripMarker);
+
+    console.log('Grip markers created at handlebar positions');
   }
 
   setupVRSessionListeners() {
@@ -147,11 +180,24 @@ export class Context {
 
     this.renderer.render(this.scene, this.camera);
     this.stats.update();
+
+    // Update handlebar position and scale
     if (this.handlebars) {
-      const vector = new THREE.Vector3(0, 1, 0)
-      this.handlebars.position.set(1, -0.2, 0)
-      this.handlebars.scale.set(0.2, 0.2, 0.2)
-      // this.handlebars.rotateOnAxis(vector, 0.1)
+      // Position handlebars relative to camera rig (rider position)
+      // BMX handlebars should be:
+      // - In front of rider: ~0.45m forward (z-axis)
+      // - Below chest level: ~-0.3m down from camera (y-axis)
+      // - Centered: 0 on x-axis
+      this.handlebars.position.set(0, -0.3, -0.45);
+
+      // Scale handlebars to realistic BMX size
+      // Real BMX handlebars are typically 60-70cm wide
+      // Assuming the model is ~1m wide originally, scale to 0.65m (65cm)
+      // We need to check the actual model size, but starting with scale that gives ~65cm width
+      this.handlebars.scale.set(1.0, 1.0, 1.0);
+
+      // Rotate handlebars slightly forward for natural riding angle
+      this.handlebars.rotation.x = Math.PI * 0.05; // ~9 degrees forward tilt
     }
   }
 
