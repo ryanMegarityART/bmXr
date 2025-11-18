@@ -36,6 +36,9 @@ export interface HandGripData {
   gripZone: GripZone | null; // Reference to the grip zone
   gripButtonPressed: boolean; // Is grip button currently pressed
   wasGripButtonPressed: boolean; // Was grip button pressed last frame
+  isAttached: boolean; // Is controller currently attached to grip
+  attachedSide: "left" | "right" | null; // Which side of handlebar this hand is gripping
+  attachmentOffset: THREE.Vector3; // Offset from grip point when attached
 }
 
 /**
@@ -140,6 +143,9 @@ export class GripSystem {
       gripZone: null,
       gripButtonPressed: false,
       wasGripButtonPressed: false,
+      isAttached: false,
+      attachedSide: null,
+      attachmentOffset: new THREE.Vector3(),
     };
   }
 
@@ -240,6 +246,9 @@ export class GripSystem {
         "right"
       );
     }
+
+    // Update attached controller visual positions
+    this.updateAttachedControllers();
   }
 
   /**
@@ -316,6 +325,11 @@ export class GripSystem {
       // Light haptic on leaving grip zone
       controller.vibrate(0.1, 30);
 
+      // Release attachment if leaving grip zone
+      if (handGrip.isAttached) {
+        this.detachController(handGrip, controller, handSide);
+      }
+
       this.emitEvent({
         type: "exitProximity",
         hand: handSide,
@@ -325,8 +339,8 @@ export class GripSystem {
 
     // Started gripping (any state -> GRIPPING)
     if (previousState !== GripState.GRIPPING && currentState === GripState.GRIPPING) {
-      // Strong haptic on successful grip
-      controller.vibrate(0.6, 100);
+      // Attach controller to grip point
+      this.attachController(handGrip, controller, handSide);
 
       this.emitEvent({
         type: "gripStart",
@@ -337,14 +351,87 @@ export class GripSystem {
 
     // Stopped gripping (GRIPPING -> any other state)
     if (previousState === GripState.GRIPPING && currentState !== GripState.GRIPPING) {
-      // Medium haptic on release
-      controller.vibrate(0.4, 50);
+      // Detach controller from grip point
+      this.detachController(handGrip, controller, handSide);
 
       this.emitEvent({
         type: "gripEnd",
         hand: handSide,
         distance: handGrip.distance,
       });
+    }
+  }
+
+  /**
+   * Attach controller to grip point
+   */
+  private attachController(
+    handGrip: HandGripData,
+    controller: XrMechanicalControllerInput,
+    handSide: "left" | "right"
+  ): void {
+    // Mark as attached
+    handGrip.isAttached = true;
+    handGrip.attachedSide = handSide;
+
+    // Calculate and store offset from grip point (for smooth attachment)
+    if (handGrip.gripZone) {
+      handGrip.gripZone.marker.getWorldPosition(__gripWorldPos);
+      __tempVec.copy(controller._worldPosition);
+      handGrip.attachmentOffset.subVectors(__tempVec, __gripWorldPos);
+    }
+
+    // Strong haptic feedback for successful grip attachment
+    // Double pulse for satisfying "click into place" feel
+    controller.vibrate(0.8, 80);
+    setTimeout(() => {
+      controller.vibrate(0.4, 40);
+    }, 100);
+
+    console.log(`${handSide} hand attached to ${handSide} grip`);
+  }
+
+  /**
+   * Detach controller from grip point
+   */
+  private detachController(
+    handGrip: HandGripData,
+    controller: XrMechanicalControllerInput,
+    handSide: "left" | "right"
+  ): void {
+    // Mark as detached
+    handGrip.isAttached = false;
+    handGrip.attachedSide = null;
+    handGrip.attachmentOffset.set(0, 0, 0);
+
+    // Medium haptic on release
+    controller.vibrate(0.4, 50);
+
+    console.log(`${handSide} hand released from grip`);
+  }
+
+  /**
+   * Update controller visual position when attached (called each frame)
+   */
+  updateAttachedControllers(): void {
+    // Update left hand if attached
+    if (this.leftHandGrip.isAttached && this.leftGripZone) {
+      const controller = this.context.xrInput._leftHandController;
+      if (controller && controller._debugSphere) {
+        // Snap debug sphere to grip point
+        this.leftGripZone.marker.getWorldPosition(__gripWorldPos);
+        controller._debugSphere.position.copy(__gripWorldPos);
+      }
+    }
+
+    // Update right hand if attached
+    if (this.rightHandGrip.isAttached && this.rightGripZone) {
+      const controller = this.context.xrInput._rightHandController;
+      if (controller && controller._debugSphere) {
+        // Snap debug sphere to grip point
+        this.rightGripZone.marker.getWorldPosition(__gripWorldPos);
+        controller._debugSphere.position.copy(__gripWorldPos);
+      }
     }
   }
 
@@ -417,6 +504,29 @@ export class GripSystem {
   }
 
   /**
+   * Check if a hand is attached to its grip
+   */
+  isHandAttached(hand: "left" | "right"): boolean {
+    const handGrip = hand === "left" ? this.leftHandGrip : this.rightHandGrip;
+    return handGrip.isAttached;
+  }
+
+  /**
+   * Check if both hands are attached
+   */
+  areBothHandsAttached(): boolean {
+    return this.leftHandGrip.isAttached && this.rightHandGrip.isAttached;
+  }
+
+  /**
+   * Get which side a hand is attached to
+   */
+  getAttachedSide(hand: "left" | "right"): "left" | "right" | null {
+    const handGrip = hand === "left" ? this.leftHandGrip : this.rightHandGrip;
+    return handGrip.attachedSide;
+  }
+
+  /**
    * Get debug info for display
    */
   getDebugInfo(): string {
@@ -424,7 +534,9 @@ export class GripSystem {
     const rightState = this.rightHandGrip.state;
     const leftDist = this.leftHandGrip.distance.toFixed(3);
     const rightDist = this.rightHandGrip.distance.toFixed(3);
+    const leftAttached = this.leftHandGrip.isAttached ? "ATT" : "";
+    const rightAttached = this.rightHandGrip.isAttached ? "ATT" : "";
 
-    return `L: ${leftState} (${leftDist}m) | R: ${rightState} (${rightDist}m)`;
+    return `L: ${leftState}${leftAttached} (${leftDist}m) | R: ${rightState}${rightAttached} (${rightDist}m)`;
   }
 }
