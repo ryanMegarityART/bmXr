@@ -22,17 +22,25 @@ A working VR experience where the user can:
 
 ## Phase 1: Core VR Experience Setup
 
-### Step 1.1: Fix VR Camera Perspective
+### Step 1.1: Fix VR Camera Perspective ✅
 **Goal:** Position camera at proper first-person BMX rider height and angle
 
 **Tasks:**
-- [ ] Update camera initial position to rider's head height (approximately 1.5-1.8m when standing, adjust for seated/BMX position)
-- [ ] Create camera rig that represents the rider's body position on BMX
-- [ ] Add camera height adjustment based on VR session start
+- [x] Update camera initial position to rider's head height (approximately 1.5-1.8m when standing, adjust for seated/BMX position)
+- [x] Create camera rig that represents the rider's body position on BMX
+- [x] Add camera height adjustment based on VR session start
 - [ ] Test camera position feels natural in VR headset
 
-**Files to modify:**
-- `src/context.ts` - Update camera initialization and position
+**Implementation Details:**
+- Added `cameraRig` (THREE.Group) to represent rider's body position
+- Set `RIDER_HEAD_HEIGHT = 1.3m` for seated BMX position
+- Set `HANDLEBAR_HEIGHT = 1.0m` and `HANDLEBAR_DISTANCE = 0.5m`
+- Added `onVRSessionStart()` and `onVRSessionEnd()` event handlers
+- Camera position adjusts automatically when entering/exiting VR mode
+- Handlebars now positioned relative to rider at proper reach distance
+
+**Files modified:**
+- `src/context.ts` - Updated camera initialization, added camera rig, VR session handlers
 
 **Acceptance criteria:**
 - User sees scene from appropriate BMX rider perspective

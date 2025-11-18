@@ -20,6 +20,14 @@ export class Context {
   controls: any;
   handlebars?: Object3D<Object3DEventMap>;
 
+  // Camera rig for VR - represents the rider's body position on BMX
+  cameraRig: THREE.Group;
+
+  // BMX rider configuration
+  static readonly RIDER_HEAD_HEIGHT = 1.3; // Height when seated on BMX (meters)
+  static readonly HANDLEBAR_DISTANCE = 0.5; // Distance from rider to handlebars (meters)
+  static readonly HANDLEBAR_HEIGHT = 1.0; // Height of handlebars from ground (meters)
+
   constructor() {
     this.renderer = new THREE.WebGLRenderer();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -32,9 +40,25 @@ export class Context {
     this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
     this.camera.near = 0.1;
     this.camera.far = 100;
-    this.camera.position.set(-7, 10, 15);
+
+    // Create camera rig for VR - this represents the rider's body position
+    this.cameraRig = new THREE.Group();
+    this.cameraRig.name = "CameraRig";
+
+    // Position the rig at BMX rider position
+    this.cameraRig.position.set(0, 0, 0);
+
+    // Add camera to rig - camera will be at head height relative to rig
+    this.cameraRig.add(this.camera);
+    this.scene.add(this.cameraRig);
+
+    // For non-VR mode, set camera position for debugging view
+    // In VR mode, the headset will control the camera position relative to the rig
+    this.camera.position.set(0, Context.RIDER_HEAD_HEIGHT, 2);
+    this.camera.lookAt(0, Context.HANDLEBAR_HEIGHT, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.target.set(0, Context.HANDLEBAR_HEIGHT, 0);
     this.controls.update();
 
     this.scene.background = new THREE.Color("skyblue");
@@ -52,6 +76,15 @@ export class Context {
     document.body.appendChild(VRButton.createButton(this.renderer));
     this.renderer.xr.enabled = true;
     this.xrInput = new XrInput(this);
+
+    // Handle VR session start - adjust camera rig for proper rider perspective
+    this.renderer.xr.addEventListener("sessionstart", () => {
+      this.onVRSessionStart();
+    });
+
+    this.renderer.xr.addEventListener("sessionend", () => {
+      this.onVRSessionEnd();
+    });
 
     //
     this.frame = 0;
@@ -102,10 +135,16 @@ export class Context {
     this.renderer.render(this.scene, this.camera);
     this.stats.update();
     if (this.handlebars) {
-      const vector = new THREE.Vector3(0, 1, 0)
-      this.handlebars.position.set(1, -0.2, 0)
-      this.handlebars.scale.set(0.2, 0.2, 0.2)
-      // this.handlebars.rotateOnAxis(vector, 0.1)
+      // Position handlebars at proper BMX rider reach
+      // In front of rider (negative Z), at handlebar height, centered on X
+      this.handlebars.position.set(
+        0,
+        Context.HANDLEBAR_HEIGHT,
+        -Context.HANDLEBAR_DISTANCE
+      );
+      // Scale to realistic BMX handlebar size (approximately 60-70cm wide)
+      // Adjust scale factor based on the original model dimensions
+      this.handlebars.scale.set(0.3, 0.3, 0.3);
     }
   }
 
@@ -116,6 +155,31 @@ export class Context {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(winWidth, winHeight);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  onVRSessionStart() {
+    // When VR session starts, the headset takes over camera position
+    // The camera rig should be positioned so the user feels like they're on the BMX
+    // The rig position stays at origin, and the headset's real-world position
+    // becomes the rider's head position
+    console.log("VR Session Started - Configuring rider perspective");
+
+    // Reset camera position relative to rig for VR
+    // In VR, the camera position is controlled by the headset
+    this.camera.position.set(0, 0, 0);
+
+    // The user should be standing/seated where the rider's head would be
+    // Adjust rig to account for floor-level reference space
+    // Most VR systems use floor-level, so we position the rig at 0
+    // and the user's physical height becomes the head height
+    this.cameraRig.position.set(0, 0, 0);
+  }
+
+  onVRSessionEnd() {
+    // Restore non-VR camera position
+    console.log("VR Session Ended - Restoring debug view");
+    this.camera.position.set(0, Context.RIDER_HEAD_HEIGHT, 2);
+    this.camera.lookAt(0, Context.HANDLEBAR_HEIGHT, 0);
   }
 }
 
