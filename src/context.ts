@@ -11,6 +11,7 @@ export class Context {
   cube?: THREE.Mesh;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  cameraRig: THREE.Group;
   renderer: THREE.WebGLRenderer;
   stats: Stats;
   xrInput: XrInput;
@@ -19,6 +20,7 @@ export class Context {
   clock: THREE.Clock;
   controls: any;
   handlebars?: Object3D<Object3DEventMap>;
+  isInVR: boolean = false;
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer();
@@ -29,12 +31,25 @@ export class Context {
     this.renderer.toneMapping = THREE.ReinhardToneMapping;
 
     this.scene = new THREE.Scene();
+
+    // Create camera rig to represent rider's body position on BMX
+    this.cameraRig = new THREE.Group();
+    this.scene.add(this.cameraRig);
+
     this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
     this.camera.near = 0.1;
     this.camera.far = 100;
-    this.camera.position.set(-7, 10, 15);
+
+    // Position camera at BMX rider's head height in riding position (~1.3m)
+    // When not in VR, offset slightly for desktop debugging view
+    this.camera.position.set(0, 1.3, 2);
+    this.cameraRig.add(this.camera);
+
+    // Position camera rig at origin - this represents the BMX position
+    this.cameraRig.position.set(0, 0, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.target.set(0, 1.3, 0);
     this.controls.update();
 
     this.scene.background = new THREE.Color("skyblue");
@@ -52,6 +67,9 @@ export class Context {
     document.body.appendChild(VRButton.createButton(this.renderer));
     this.renderer.xr.enabled = true;
     this.xrInput = new XrInput(this);
+
+    // Setup VR session listeners for camera adjustment
+    this.setupVRSessionListeners();
 
     //
     this.frame = 0;
@@ -93,12 +111,40 @@ export class Context {
     // this.scene.add(mirror);
   }
 
+  setupVRSessionListeners() {
+    // Listen for VR session start
+    this.renderer.xr.addEventListener('sessionstart', () => {
+      this.isInVR = true;
+      // In VR mode, reset camera position to origin relative to rig
+      // WebXR will handle head tracking from this base position
+      this.camera.position.set(0, 0, 0);
+      // Disable orbit controls in VR
+      this.controls.enabled = false;
+      console.log('Entered VR mode - Camera positioned at BMX rider perspective');
+    });
+
+    // Listen for VR session end
+    this.renderer.xr.addEventListener('sessionend', () => {
+      this.isInVR = false;
+      // Restore desktop camera position for debugging
+      this.camera.position.set(0, 1.3, 2);
+      // Re-enable orbit controls
+      this.controls.enabled = true;
+      console.log('Exited VR mode - Camera restored to desktop view');
+    });
+  }
+
   onAnimate() {
     this.frame++;
     this.elapsedTime = this.clock.elapsedTime;
     this.deltaTime = this.clock.getDelta();
     this.xrInput.onAnimate();
-    this.controls.update();
+
+    // Only update controls when not in VR
+    if (!this.isInVR) {
+      this.controls.update();
+    }
+
     this.renderer.render(this.scene, this.camera);
     this.stats.update();
     if (this.handlebars) {
