@@ -264,17 +264,45 @@ A working VR experience where the user can:
 
 ## Phase 3: Barspin Mechanic
 
-### Step 3.1: Barspin State Machine
+### Step 3.1: Barspin State Machine ✅
 **Goal:** Create state system for barspin trick execution
 
 **Tasks:**
-- [ ] Define barspin states: READY, INITIATED, SPINNING, CATCH_WINDOW, CAUGHT, FAILED
-- [ ] Implement state transitions with validation
-- [ ] Add state debugging visualization
-- [ ] Create state event emitters for feedback systems
+- [x] Define barspin states: READY, INITIATED, SPINNING, CATCH_WINDOW, CAUGHT, FAILED
+- [x] Implement state transitions with validation
+- [x] Add state debugging visualization
+- [x] Create state event emitters for feedback systems
 
-**Files to create:**
+**Files created:**
 - `src/mechanics/BarspinMechanic.ts`
+
+**Files modified:**
+- `src/context.ts` - Integrated BarspinMechanic initialization and update
+
+**Implementation notes:**
+- Created comprehensive BarspinState enum with all 6 states
+- Implemented state machine with validation for transitions:
+  - READY -> INITIATED (one hand releases)
+  - INITIATED -> SPINNING (second hand releases) or FAILED (timeout)
+  - SPINNING -> CATCH_WINDOW (80% through rotation)
+  - CATCH_WINDOW -> CAUGHT (both hands catch) or FAILED (timeout)
+  - CAUGHT/FAILED -> READY (reset)
+- Event system with 9 event types:
+  - stateChange, initiated, spinning, catchWindowOpen, catchWindowClose
+  - firstCatch, secondCatch, success, failed
+- Debug visualization using THREE.js Sprite with canvas-based text:
+  - Color-coded state display (Green=READY, Yellow=INITIATED, Orange=SPINNING, etc.)
+  - Progress bar for spin completion
+  - Positioned above handlebars for visibility
+- Configuration system for tuning difficulty:
+  - minRotationVelocity, initiationTimeout, catchWindowDuration
+  - catchWindowAngleMargin, failureResetDelay, successResetDelay
+- Integrated with GripSystem via event listeners:
+  - Listens for gripEnd to detect initiation and spinning
+  - Listens for gripStart to detect catch attempts
+- Utility methods: canInitiate(), isSpinning(), isInCatchWindow(), getSpinRotation(), getDebugInfo()
+- BarspinMechanic initialized in context.ts after GripSystem
+- Update called each frame in animation loop with deltaTime
 
 **States:**
 - **READY**: Both hands gripping, ready to start
@@ -285,9 +313,10 @@ A working VR experience where the user can:
 - **FAILED**: Missed timing or incorrect execution
 
 **Acceptance criteria:**
-- State machine handles all barspin phases
-- Clear state transitions with validation
-- States can be visualized for debugging
+- ✅ State machine handles all barspin phases
+- ✅ Clear state transitions with validation
+- ✅ States can be visualized for debugging
+- ✅ Event emitters ready for feedback systems
 
 ---
 

@@ -6,6 +6,7 @@ import Stats from "three/examples/jsm/libs/stats.module";
 import { XrInput } from "./utils/xrInput";
 import { Object3D, Object3DEventMap } from "three";
 import { GripSystem } from "./mechanics/GripSystem";
+import { BarspinMechanic } from "./mechanics/BarspinMechanic";
 
 export class Context {
   frame: number = 0;
@@ -17,6 +18,7 @@ export class Context {
   stats: Stats;
   xrInput: XrInput;
   gripSystem: GripSystem;
+  barspinMechanic: BarspinMechanic;
   elapsedTime: number;
   deltaTime: number;
   clock: THREE.Clock;
@@ -80,6 +82,9 @@ export class Context {
 
     // Initialize grip system
     this.gripSystem = new GripSystem(this);
+
+    // Initialize barspin mechanic (must be after gripSystem)
+    this.barspinMechanic = new BarspinMechanic(this);
 
     // Setup VR session listeners for camera adjustment
     this.setupVRSessionListeners();
@@ -189,6 +194,9 @@ export class Context {
 
     // Update grip system
     this.gripSystem.update();
+
+    // Update barspin mechanic
+    this.barspinMechanic.update(this.deltaTime);
 
     // Only update controls when not in VR
     if (!this.isInVR) {
