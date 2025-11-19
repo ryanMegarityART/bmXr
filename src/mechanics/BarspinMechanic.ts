@@ -85,6 +85,10 @@ export class BarspinMechanic {
   initiatingHand: "left" | "right" | null = null;
   initiationStartTime: number = 0;
 
+  // Angular velocity tracking for initiation
+  peakAngularVelocity: number = 0;  // Peak velocity detected during initiation
+  spinSpeedMultiplier: number = 1.0; // Multiplier based on initiation velocity
+
   // Catch tracking
   catchWindowStartTime: number = 0;
   firstCatchHand: "left" | "right" | null = null;
@@ -190,7 +194,7 @@ export class BarspinMechanic {
     // Create sprite
     this.debugText = new THREE.Sprite(material);
     this.debugText.scale.set(1.0, 0.25, 1);
-    this.debugText.position.set(0, 0.3, -0.45); // Above handlebars
+    this.debugText.position.set(0, 0.1, -0.35); // Above handlebars (handlebars at y=-0.4, z=-0.35)
 
     // Add to camera rig so it moves with player
     this.context.cameraRig.add(this.debugText);
@@ -355,6 +359,8 @@ export class BarspinMechanic {
           if (this.gripSystem.isHandAttached(otherHand)) {
             this.initiatingHand = hand;
             this.initiationStartTime = performance.now();
+            // Reset peak velocity tracking for this initiation
+            this.peakAngularVelocity = 0;
             this.setState(BarspinState.INITIATED);
 
             this.emitEvent({
@@ -368,11 +374,23 @@ export class BarspinMechanic {
 
       case BarspinState.INITIATED:
         // Second hand released - start spinning
+        // Calculate spin speed multiplier based on peak angular velocity
+        // Map velocity to multiplier: 1.5 rad/s = 1x, 3 rad/s = 1.5x, 6 rad/s = 2x
+        const minVel = this.config.minRotationVelocity; // 1.5 rad/s
+        const velocityRatio = this.peakAngularVelocity / minVel;
+        this.spinSpeedMultiplier = Math.min(2.0, 0.5 + velocityRatio * 0.5);
+
         this.spinStartTime = performance.now();
         this.spinProgress = 0;
         this.currentRotation = 0;
-        // Spin direction determined by which hand initiated
-        this.spinDirection = this.initiatingHand === "right" ? "clockwise" : "counterclockwise";
+
+        // Use spin direction from angular velocity tracking if available
+        // Otherwise fall back to hand-based direction
+        if (!this.spinDirection) {
+          this.spinDirection = this.initiatingHand === "right" ? "clockwise" : "counterclockwise";
+        }
+
+        console.log(`Starting barspin spin - direction: ${this.spinDirection}, speed multiplier: ${this.spinSpeedMultiplier.toFixed(2)}`);
 
         this.setState(BarspinState.SPINNING);
 
@@ -479,20 +497,53 @@ export class BarspinMechanic {
   private updateInitiatedState(): void {
     const elapsed = performance.now() - this.initiationStartTime;
 
+    // Track angular velocity of the remaining gripped hand
+    const remainingHand = this.initiatingHand === "left" ? "right" : "left";
+    const controller = remainingHand === "left"
+      ? this.context.xrInput._leftHandController
+      : this.context.xrInput._rightHandController;
+
+    if (controller) {
+      // Trigger refresh to update angular velocity
+      controller.wristWPos;
+
+      // Track peak angular velocity (absolute value since we care about magnitude)
+      const currentVelocity = Math.abs(controller.yawAngularVelocity);
+      if (currentVelocity > this.peakAngularVelocity) {
+        this.peakAngularVelocity = currentVelocity;
+      }
+
+      // Determine spin direction from velocity
+      // Positive yaw = counterclockwise, Negative = clockwise
+      if (Math.abs(controller.yawAngularVelocity) > this.config.minRotationVelocity) {
+        this.spinDirection = controller.yawAngularVelocity > 0 ? "counterclockwise" : "clockwise";
+      }
+    }
+
     // Check for timeout
     if (elapsed > this.config.initiationTimeout) {
-      // Failed to complete initiation in time
-      this.setState(BarspinState.FAILED);
+      // Check if we had sufficient rotation velocity
+      if (this.peakAngularVelocity >= this.config.minRotationVelocity) {
+        // Haptic feedback for successful initiation
+        if (controller) {
+          controller.vibrate(0.5, 100);
+        }
+        console.log(`Barspin initiated with peak velocity: ${this.peakAngularVelocity.toFixed(2)} rad/s`);
+      } else {
+        // Failed to reach minimum rotation velocity
+        console.log(`Barspin failed - insufficient velocity: ${this.peakAngularVelocity.toFixed(2)} rad/s`);
+        this.setState(BarspinState.FAILED);
 
-      this.emitEvent({
-        type: "failed",
-        currentState: this._state,
-      });
+        this.emitEvent({
+          type: "failed",
+          currentState: this._state,
+        });
 
-      // Schedule reset
-      setTimeout(() => {
-        this.resetToReady();
-      }, this.config.failureResetDelay);
+        // Schedule reset
+        setTimeout(() => {
+          this.resetToReady();
+        }, this.config.failureResetDelay);
+      }
     }
   }
 
@@ -501,8 +552,9 @@ export class BarspinMechanic {
    */
   private updateSpinningState(deltaTime: number): void {
     // Update spin progress
-    // For MVP, we'll use time-based progress (can add physics later)
-    const spinDuration = 600; // 600ms for full spin (adjustable)
+    // Base spin duration adjusted by velocity multiplier
+    const baseDuration = 600; // 600ms for full spin at base velocity
+    const spinDuration = baseDuration / this.spinSpeedMultiplier;
     const elapsed = performance.now() - this.spinStartTime;
 
     this.spinProgress = Math.min(elapsed / spinDuration, 1.0);
@@ -572,6 +624,9 @@ export class BarspinMechanic {
     this.initiationStartTime = 0;
     this.catchWindowStartTime = 0;
     this.firstCatchHand = null;
+    // Reset angular velocity tracking
+    this.peakAngularVelocity = 0;
+    this.spinSpeedMultiplier = 1.0;
 
     this.updateDebugVisualization();
 
