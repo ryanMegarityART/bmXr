@@ -40,6 +40,7 @@ A working VR experience where the user can:
 - Added VR session event listeners that adjust camera on VR entry/exit
 - Desktop mode uses OrbitControls for debugging (disabled in VR)
 - Camera resets to origin in VR mode (WebXR handles head tracking)
+- Added static constants: RIDER_HEAD_HEIGHT, HANDLEBAR_DISTANCE, HANDLEBAR_HEIGHT
 
 **Acceptance criteria:**
 - ✅ User sees scene from appropriate BMX rider perspective

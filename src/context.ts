@@ -34,6 +34,11 @@ export class Context {
   handlebarRotationSmoothing: number = 0.15; // Lerp factor for smooth rotation
   maxHandlebarRotation: number = Math.PI / 2; // ±90 degrees constraint
 
+  // BMX rider configuration
+  static readonly RIDER_HEAD_HEIGHT = 1.3; // Height when seated on BMX (meters)
+  static readonly HANDLEBAR_DISTANCE = 0.5; // Distance from rider to handlebars (meters)
+  static readonly HANDLEBAR_HEIGHT = 1.0; // Height of handlebars from ground (meters)
+
   constructor() {
     this.renderer = new THREE.WebGLRenderer();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -52,16 +57,16 @@ export class Context {
     this.camera.near = 0.1;
     this.camera.far = 100;
 
-    // Position camera at BMX rider's head height in riding position (~1.3m)
+    // Position camera at BMX rider's head height in riding position
     // When not in VR, offset slightly for desktop debugging view
-    this.camera.position.set(0, 1.3, 2);
+    this.camera.position.set(0, Context.RIDER_HEAD_HEIGHT, 2);
     this.cameraRig.add(this.camera);
 
     // Position camera rig at origin - this represents the BMX position
     this.cameraRig.position.set(0, 0, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.set(0, 1.3, 0);
+    this.controls.target.set(0, Context.RIDER_HEAD_HEIGHT, 0);
     this.controls.update();
 
     this.scene.background = new THREE.Color("skyblue");
