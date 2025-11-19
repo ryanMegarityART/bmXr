@@ -321,25 +321,41 @@ A working VR experience where the user can:
 
 ---
 
-### Step 3.2: Barspin Initiation
+### Step 3.2: Barspin Initiation ✅
 **Goal:** Detect rotation gesture to start barspin
 
 **Tasks:**
-- [ ] Track controller angular velocity when one hand gripped
-- [ ] Detect rotation gesture threshold (minimum rotation speed)
-- [ ] Calculate spin direction from controller movement
-- [ ] Trigger barspin animation on second hand release
-- [ ] Add visual/haptic feedback on successful initiation
+- [x] Track controller angular velocity when one hand gripped
+- [x] Detect rotation gesture threshold (minimum rotation speed)
+- [x] Calculate spin direction from controller movement
+- [x] Trigger barspin animation on second hand release
+- [x] Add visual/haptic feedback on successful initiation
 
-**Files to modify:**
-- `src/mechanics/BarspinMechanic.ts`
-- `src/utils/xrGestureTracker.ts` - Track rotation gestures
+**Files modified:**
+- `src/mechanics/BarspinMechanic.ts` - Added velocity tracking and spin speed multiplier
+- `src/utils/xrMechanicalControllerInput.ts` - Added angular velocity calculation
+
+**Implementation notes:**
+- Added angular velocity tracking to XrMechanicalControllerInput:
+  - Calculates rotation delta between frames using quaternion math
+  - Extracts yaw (Y-axis) angular velocity for handlebar rotation
+  - Provides `yawAngularVelocity` getter (rad/s)
+- Updated BarspinMechanic with velocity-based initiation:
+  - Tracks peak angular velocity during INITIATED state
+  - Requires minimum velocity (1.5 rad/s) to start spin
+  - Determines spin direction from controller rotation direction
+  - Calculates spin speed multiplier (0.5x to 2x) based on velocity
+  - Haptic feedback (0.5 intensity) on successful initiation
+- Spin speed scales with initiation velocity:
+  - 1.5 rad/s = 1x speed (600ms for full spin)
+  - 3 rad/s = 1.5x speed (400ms for full spin)
+  - 6+ rad/s = 2x speed (300ms for full spin)
 
 **Acceptance criteria:**
-- System detects when user rotates gripped controller
-- Requires minimum rotation speed to initiate (prevents accidental triggers)
-- Spin direction matches controller rotation direction
-- Clear feedback when barspin initiated
+- ✅ System detects when user rotates gripped controller
+- ✅ Requires minimum rotation speed to initiate (prevents accidental triggers)
+- ✅ Spin direction matches controller rotation direction
+- ✅ Clear feedback when barspin initiated
 
 ---
 
