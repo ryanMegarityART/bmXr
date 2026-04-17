@@ -53,9 +53,8 @@ export class Context {
     this.cameraRig = new THREE.Group();
     this.scene.add(this.cameraRig);
 
-    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-    this.camera.near = 0.1;
-    this.camera.far = 100;
+    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    this.camera.updateProjectionMatrix();
 
     // Position camera at BMX rider's head height in riding position
     // When not in VR, offset slightly for desktop debugging view
@@ -172,19 +171,24 @@ export class Context {
     // Listen for VR session start
     this.renderer.xr.addEventListener('sessionstart', () => {
       this.isInVR = true;
-      // In VR mode, reset camera position to origin relative to rig
-      // WebXR will handle head tracking from this base position
+      // In VR mode, position the camera rig at rider's head height
+      // This represents the rider's seated position on the BMX
+      // WebXR will handle head tracking relative to this position
+      this.cameraRig.position.set(0, Context.RIDER_HEAD_HEIGHT, 0);
+      // Reset camera to origin in rig - WebXR controls head position
       this.camera.position.set(0, 0, 0);
       // Disable orbit controls in VR
       this.controls.enabled = false;
-      console.log('Entered VR mode - Camera positioned at BMX rider perspective');
+      console.log('Entered VR mode - Camera rig at rider head height:', Context.RIDER_HEAD_HEIGHT);
     });
 
     // Listen for VR session end
     this.renderer.xr.addEventListener('sessionend', () => {
       this.isInVR = false;
+      // Reset camera rig to origin for desktop mode
+      this.cameraRig.position.set(0, 0, 0);
       // Restore desktop camera position for debugging
-      this.camera.position.set(0, 1.3, 2);
+      this.camera.position.set(0, Context.RIDER_HEAD_HEIGHT, 2);
       // Re-enable orbit controls
       this.controls.enabled = true;
       console.log('Exited VR mode - Camera restored to desktop view');
@@ -214,11 +218,12 @@ export class Context {
     // Update handlebar position and scale
     if (this.handlebars) {
       // Position handlebars relative to camera rig (rider position)
+      // In VR mode, position closer and more naturally like gripping real BMX handlebars
       // BMX handlebars should be:
-      // - In front of rider: ~0.45m forward (z-axis)
-      // - Below chest level: ~-0.3m down from camera (y-axis)
+      // - In front of rider: ~0.35m forward (z-axis) - closer for immersive feel
+      // - At chest/waist level: ~-0.4m down from head (y-axis) - natural arm reach
       // - Centered: 0 on x-axis
-      this.handlebars.position.set(0, -0.3, -0.45);
+      this.handlebars.position.set(0, -0.4, -0.35);
 
       // Scale handlebars to realistic BMX size
       // Real BMX handlebars are typically 60-70cm wide

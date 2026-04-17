@@ -7,6 +7,9 @@ const __wristOffset = new THREE.Vector3();
 const __euler = new THREE.Euler();
 const __wristQuat = new THREE.Quaternion();
 const __tempVec = new THREE.Vector3();
+const __prevQuatInverse = new THREE.Quaternion();
+const __deltaQuat = new THREE.Quaternion();
+const __angularAxis = new THREE.Vector3();
 
 /**
  * Manages the standard WebXR mechanical "grip" controller.
@@ -38,6 +41,13 @@ export class XrMechanicalControllerInput {
   _buttonStateIndicator?: THREE.Mesh;
   isNearGrip: boolean;
   distanceToGrip: number;
+
+  // Angular velocity tracking
+  _previousWorldRotation: THREE.Quaternion;
+  _angularVelocity: THREE.Vector3;  // Angular velocity in rad/s (axis * angle)
+  _yawVelocity: number;  // Yaw (Y-axis) angular velocity in rad/s
+  _previousTime: number;
+
   constructor(context: Context, grip: any, gamePad: any, handSide: string) {
     this.context = context;
     this._grip = grip;
@@ -67,8 +77,30 @@ export class XrMechanicalControllerInput {
     this.isNearGrip = false;
     this.distanceToGrip = Infinity;
 
+    // Initialize angular velocity tracking
+    this._previousWorldRotation = new THREE.Quaternion();
+    this._angularVelocity = new THREE.Vector3();
+    this._yawVelocity = 0;
+    this._previousTime = performance.now();
+
     // Create visual debug sphere for controller position
     this.createDebugVisualization();
+  }
+
+  /**
+   * Get the yaw (Y-axis) angular velocity in rad/s
+   * Positive = counterclockwise when viewed from above
+   * Negative = clockwise when viewed from above
+   */
+  get yawAngularVelocity(): number {
+    return this._yawVelocity;
+  }
+
+  /**
+   * Get the full angular velocity vector
+   */
+  get angularVelocity(): THREE.Vector3 {
+    return this._angularVelocity;
   }
 
   /*
@@ -358,5 +390,42 @@ export class XrMechanicalControllerInput {
         this.buttonB = buttons.length > 5 ? buttons[5].pressed : false;
       }
     }
+
+    // Calculate angular velocity
+    const currentTime = performance.now();
+    const deltaTime = (currentTime - this._previousTime) / 1000; // Convert to seconds
+
+    if (deltaTime > 0 && deltaTime < 0.5) { // Avoid divide by zero and large jumps
+      // Calculate rotation difference: deltaQuat = current * inverse(previous)
+      __prevQuatInverse.copy(this._previousWorldRotation).invert();
+      __deltaQuat.multiplyQuaternions(this._worldRotation, __prevQuatInverse);
+
+      // Convert quaternion to axis-angle
+      const angle = 2 * Math.acos(Math.min(1, Math.abs(__deltaQuat.w)));
+
+      if (angle > 0.0001) { // Avoid division by zero
+        const sinHalfAngle = Math.sin(angle / 2);
+        __angularAxis.set(
+          __deltaQuat.x / sinHalfAngle,
+          __deltaQuat.y / sinHalfAngle,
+          __deltaQuat.z / sinHalfAngle
+        );
+
+        // Angular velocity = axis * (angle / deltaTime)
+        const angularSpeed = angle / deltaTime;
+        this._angularVelocity.copy(__angularAxis).multiplyScalar(angularSpeed);
+
+        // Extract yaw velocity (rotation around Y-axis)
+        // This is the component we care about for handlebar rotation
+        this._yawVelocity = this._angularVelocity.y;
+      } else {
+        this._angularVelocity.set(0, 0, 0);
+        this._yawVelocity = 0;
+      }
+    }
+
+    // Store current rotation and time for next frame
+    this._previousWorldRotation.copy(this._worldRotation);
+    this._previousTime = currentTime;
   }
 }
